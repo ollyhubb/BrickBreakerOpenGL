@@ -27,34 +27,38 @@
 //#1    CLEAN UP UN-NEEDED CODE         [DONE]
 //#2    RE-SIZE BOARD           [SCRAPPED]
 //#3    SET PADDLE TO RENDER ON BOTTOM OF THE SCREEN        [DONE]
-            //#3A   PADDLE MOVES LEFT AND RIGHT                                 [DONE]
+//#3A   PADDLE MOVES LEFT AND RIGHT                                 [DONE]
 //#4    SET BALL TO RENDER ON PADDLE                                            [DONE]
-            //#4A   SET BALL TO RENDER ON PADDLE DYNAMICALLY            [DONE]
+//#4A   SET BALL TO RENDER ON PADDLE DYNAMICALLY            [DONE]
 
 //#5    SET BALL TO LAUNCH FROM PADDLE BASED ON WHERE MOUSE WAS CLICKED
-            //#5A   SET BALL TO BOUNCE OFF EDGES OF PLAYING ZONE    [DONE]
-            //#5B   SET BALL TO RESET WHEN GOING BELOW PADDLE       [DONE]
-            //#5C   SET BALL TO HIT PADDLE AND FREEZE UNTIL SHOT AGAIN  [DONE]
+//#5A   SET BALL TO BOUNCE OFF EDGES OF PLAYING ZONE    [DONE]
+//#5B   SET BALL TO RESET WHEN GOING BELOW PADDLE       [DONE]
+//#5C   SET BALL TO HIT PADDLE AND FREEZE UNTIL SHOT AGAIN  [DONE]
 
-//#6    ADD BRICK RENDERING
-            //#6A   TEST BRICK COLLISION
-            //#6B   ADD BRICK REMOVAL AFTER HIT
+//#6    ADD BRICK RENDERING         [DONE]
+//#6A   TEST BRICK COLLISION                    [DONE]
+//#6B   ADD BRICK REMOVAL AFTER HIT     [DONE]
 
 //#7    CREATE BRICK PATTERN RENDERING (CREATE MULTIPLE PATTERNS FOR ROWS THAT ALLOWS A RANDOM GENERATION TO SELECT PATTERN)
+//#7A   ADD TIMER ON A BOOL WHERE IF A BRICK IS HIT ANOTHER BRICK CANNOT BE HIT IN THAT SAME COLLISION
+
 
 
 //#8    TEST GAME FOR CORE MECHANICS FUNCTIONALITY
 
-            //ADDITIONAL NON-CORE TASK
+//ADDITIONAL NON-CORE TASK
 
-            // CLEAN UP PRODUCTION COMMENTS
-            //#9   ADD LEVELS (WHEN FINAL BRICK DESTROYED CREATE NEW PATTERN AND RESET BALL)
-           //#10  ADD SCORE
-           //#11  ADD VARIOUS BRICK TYPES
-           //#12  ADD VARIOUS POWER UPS
-           //#13  ADD END OF LEVEL ANIMATION
-           //#14  ADD TEXT TO SCREEN
-           //#15  ADD MENU OR KEY SELECTION TO CHANGE BACKGROUNDS, BALL COLOR, ETC.
+// CLEAN UP PRODUCTION COMMENTS
+//#9   ADD LEVELS (WHEN FINAL BRICK DESTROYED CREATE NEW PATTERN AND RESET BALL)
+//#10  ADD SCORE
+//#11  ADD VARIOUS BRICK TYPES
+//#12  ADD VARIOUS POWER UPS
+//#13  ADD END OF LEVEL ANIMATION
+//#14  ADD TEXT TO SCREEN
+//#15  ADD MENU OR KEY SELECTION TO CHANGE BACKGROUNDS, BALL COLOR, ETC.
+//#16  NORMALIZE LAUNCH VALUES SO A CONSISTENT SPEED IS ACHIEVED WITH EACH LAUNCH ONLY DIRECTION IS RECORDED
+
 
 
 
@@ -70,6 +74,9 @@ const int HALF = SIZE/2;
 const int TENTH = SIZE/10;
 
 const int RADIUS = 10;
+
+const int BRICK = 40;
+const int LENGTH = 15;
 
 
 
@@ -98,9 +105,8 @@ int initialY;
 int finalX;
 int finalY;
 
-
-float rangeMax;
-float rangeMin;
+int bricks[4][4];
+int brick_allow[4];
 
 
 //---------------------------------------
@@ -108,23 +114,11 @@ float rangeMin;
 //---------------------------------------
 void reset_ball()
 {
-
     
-        BallPosX = LeftPos - RADIUS*3.5;
-        BallPosY = -HALF + 3*RADIUS;
     
-        x_cord = BallPosX;
-        y_cord = BallPosY;
+    BallPosX = LeftPos - RADIUS*3.5;
+    BallPosY = -HALF + 3*RADIUS;
     
-        Speed = 0;
-        Vx = 0;
-        Vy = 0;
-}
-
-void collide_ball_left()     //Ball was launched and hit paddle
-{
-    BallPosX -= RADIUS*2;
-
     x_cord = BallPosX;
     y_cord = BallPosY;
     
@@ -133,7 +127,19 @@ void collide_ball_left()     //Ball was launched and hit paddle
     Vy = 0;
 }
 
-void collide_ball_right()     //Ball was launched and hit paddle
+void collide_ball_left()     //Ball was launched and hit paddle, move paddle left
+{
+    BallPosX -= RADIUS*2;
+    
+    x_cord = BallPosX;
+    y_cord = BallPosY;
+    
+    Speed = 0;
+    Vx = 0;
+    Vy = 0;
+}
+
+void collide_ball_right()     //Ball was launched and hit paddle, move paddle right
 {
     BallPosX += RADIUS*2;
     
@@ -158,70 +164,139 @@ void init()
     
     // Initialize pong board
     srand(clock());
-   
+    
     LeftPos = TENTH;
     RightPos = -TENTH;
     BallPosX = LeftPos - (LeftPos/2) - 2*RADIUS + (RADIUS/2);
     
-    rangeMax = -220;
-    rangeMin = -200;
+    
+    for (int i =0; i < 4; i++)              //BRICK ALLOW CHANGE BACK
+    {
+        brick_allow[i] = 1;
+    }
     
     reset_ball();
+    
+}
+
+
+//-------------------------
+// Collision check for side of bricks
+//-------------------------
+bool Collision(float BallPositionZ, int leftVertex, int rightVertex)
+{
+    if (((leftVertex <= (BallPositionZ + RADIUS)) && (rightVertex >= (BallPositionZ + RADIUS)))
+        ||
+        ((leftVertex <= (BallPositionZ - RADIUS)) && (rightVertex >= (BallPositionZ - RADIUS)))
+        ||
+        ((leftVertex <= (BallPositionZ)) && (rightVertex >= (BallPositionZ))))
+    {
+        return true;
+        
+    }
+    return false;
+    
+    
+}
+
+//-------------------------
+// Brick Render
+//-------------------------
+void brick_render(int brick_select, int x_cordinates, int y_cordinates, float color)
+{
+    
+    int x1 = x_cordinates;
+    int x2 = x_cordinates - BRICK;
+    int y1 = y_cordinates;
+    int y2 = y_cordinates + LENGTH;
+    
+    for (int i =0; i < 4; i++)  //Record brick coordinates for collision
+    {
+        if (i == 0)
+        {
+            bricks[brick_select][i] = x1;
+        }
+        else if (i== 1)
+        {
+            bricks[brick_select][i] = x2;
+        }
+        else if (i== 2)
+        {
+            bricks[brick_select][i] = y1;
+        }
+        else if (i== 3)
+        {
+            bricks[brick_select][i] = y2;
+        }
+        
+    }
+    
+    
+    glBegin(GL_POLYGON);
+    glColor3f(0.3, color, 0.1);
+    glVertex2f(bricks[brick_select][0], bricks[brick_select][2]);   //bottom right
+    glVertex2f(bricks[brick_select][1], bricks[brick_select][2]);   //bottom left
+    glVertex2f(bricks[brick_select][1], bricks[brick_select][3]);   //top left
+    glVertex2f(bricks[brick_select][0], bricks[brick_select][3]);   //top right
+    glEnd();
+    
+    
     
     
     
 }
+
 
 //---------------------------------------
 // Mouse callback for OpenGL
 //---------------------------------------
 void mouse(int button, int state, int x, int y)
 {
-        Launched = false;
-        collide = false;
+    Launched = false;
+    collide = false;
     
-        // Handle mouse down
-        if (state == GLUT_DOWN)
-        {
-            initialX = x;
-            initialY = y;
+    // Handle mouse down
+    if (state == GLUT_DOWN)
+    {
+        initialX = x;
+        initialY = y;
         
+    }
+    
+    
+    
+    if (state == GLUT_UP)
+    {
+        finalX = x;
+        finalY = y;
+        
+        if (finalX < initialX)
+        {
+            endX = -(initialX - finalX);
+            endY = initialY - finalY;
         }
         
-        
-        
-        if (state == GLUT_UP)
+        if (finalX > initialX)
         {
-            finalX = x;
-            finalY = y;
-            
-            if (finalX < initialX)
-            {
-                endX = -(initialX - finalX);
-                endY = initialY - finalY;
-            }
-            
-            if (finalX > initialX)
-            {
-                endX = (finalX - initialX);
-                endY = initialY - finalY;
-            }
-            
-            endX = endX/15;
-            endY = endY/15;
-            
-            Vx = endX;
-            Vy = endY;
-            
-            Launched = true;
-            Speed = 1;
+            endX = (finalX - initialX);
+            endY = initialY - finalY;
         }
         
+        endX = endX/15;
+        endY = endY/15;
         
+        Vx = endX;
+        Vy = endY;
         
-        glutPostRedisplay();
-
-
+        Launched = true;
+        Speed = 1;
+    }
+    
+    
+    
+    glutPostRedisplay();
+    
+    
 }
 
 
@@ -230,7 +305,7 @@ void mouse(int button, int state, int x, int y)
 //---------------------------------------
 void display()
 {
-
+    
     
     //Clear screen
     glClear(GL_COLOR_BUFFER_BIT);
@@ -246,7 +321,7 @@ void display()
     glVertex2f( HALF - RADIUS, -HALF + RADIUS);
     glEnd();
     
-    //Draw paddles
+    //Draw paddle
     glBegin(GL_POLYGON);            //CHANGE PADDLE TO RENDER ON BOTTOM OF FRAME, REMOVE OG PADDLES [DONE]
     glColor3f(0.8, 0.8, 0.8);
     glVertex2f(LeftPos + 1*RADIUS, -HALF + 2*RADIUS);
@@ -254,19 +329,47 @@ void display()
     glVertex2f(RightPos + 1*RADIUS, -HALF + 1*RADIUS);
     glVertex2f(LeftPos + 1*RADIUS, -HALF + 1*RADIUS);
     glEnd();
-
+    
     
     //Draw ball
     glBegin(GL_POLYGON);    //SET BALL TO START FROM CENTER OF PADDLE [DONE]
     glColor3f(0.8, 0.1, 0.1);
-    glVertex2f(BallPosX - RADIUS, BallPosY - RADIUS);
-    glVertex2f(BallPosX - RADIUS, BallPosY + RADIUS);
-    glVertex2f(BallPosX + RADIUS, BallPosY + RADIUS);
-    glVertex2f(BallPosX + RADIUS, BallPosY - RADIUS);
+    glVertex2f(BallPosX - RADIUS, BallPosY - RADIUS);       //TOP LEFT
+    glVertex2f(BallPosX - RADIUS, BallPosY + RADIUS);       //TOP RIGHT
+    glVertex2f(BallPosX + RADIUS, BallPosY + RADIUS);       //BOTTOM RIGHT
+    glVertex2f(BallPosX + RADIUS, BallPosY - RADIUS);       //BOTTOM LEFT
     glEnd();
-    glFlush();
     
-    //ADD BRICK RENDERING
+    
+    //Brick Render
+    if (brick_allow[0] == 1)
+    {
+        brick_render(0, 40,15, 0.8);
+        
+    }
+    
+    if (brick_allow[1] == 1)
+    {
+        brick_render(1, 0, 15, 0.65);
+        
+    }
+    
+    if (brick_allow[2] == 1)
+    {
+        brick_render(2, -40, 15, 0.8);                  //Each 40 in the x coordinate is a bricks length
+        
+    }
+    
+    if (brick_allow[3] == 1)
+    {
+        brick_render(3, -80, 15, 0.65);
+        
+    }
+    
+    
+    
+    
+    glFlush();
 }
 
 //---------------------------------------
@@ -274,13 +377,13 @@ void display()
 //---------------------------------------
 void idle()
 {
-
+    
     
     // Move bouncing ball
     BallPosX += Vx * Speed;
     BallPosY += Vy * Speed;
     
-
+    
     // Bounce off walls
     if (BallPosY > HALF - 2*RADIUS)     //Ball hits top wall
     {
@@ -295,7 +398,7 @@ void idle()
     if (BallPosX < -HALF + 2*RADIUS)    //Ball hits left wall
     {
         BallPosX = -HALF + 2*RADIUS; Vx*= -1;
-
+        
     }
     
     if (BallPosY < -HALF - 2*RADIUS)     //Ball hits top wall
@@ -305,17 +408,44 @@ void idle()
         
     }
     
-
-    if ((RightPos <= BallPosX) && (LeftPos >= BallPosX) && (BallPosY <= -220 ))      //Ball collides with paddle
+    
+    if ((RightPos <= BallPosX) && (LeftPos >= BallPosX) && (BallPosY <= -220))      //Ball collides with paddle
     {
-            BallPosY = -220;
-            Vx = 0;
-            Vy = 0;
-            collide = true;
-
+        BallPosY = -220;
+        Vx = 0;
+        Vy = 0;
+        collide = true;
+        
     }
-
-
+    
+    
+    for (int i = 0; i < 4; i++ )
+    {
+        if (brick_allow[i] == 1)
+        {
+            if ((Collision(BallPosX, bricks[i][1], bricks[i][0]) == true) && (Collision(BallPosY, bricks[i][2], bricks[i][3]))) //Collision on sides of brick
+            {
+                Vx*= -1;
+                brick_allow[i] = 0;
+            }
+            
+            if ((Collision(BallPosX, bricks[i][1], bricks[i][0]) == true) && ((Collision(BallPosY, bricks[i][2], bricks[i][3]) == true)))//Collision on top or bottom
+            {
+                Vy *= -1;
+                Vx *= -1;
+                brick_allow[i] = 0;
+            }
+            
+        }
+    }
+    
+    
+    
+    
+    
+    
+    
+    
     glutPostRedisplay();
 }
 
@@ -332,8 +462,8 @@ void special(int key, int x, int y)
 //---------------------------------------
 void keyboard(unsigned char key, int x, int y)
 {
-
-    if ((key == 'q') && (RightPos > -HALF))     //Paddle moves left
+    
+    if ((key == 'a') && (RightPos > -HALF))     //Paddle moves left
     {
         LeftPos -= RADIUS*2;
         RightPos -= RADIUS*2;
@@ -347,7 +477,7 @@ void keyboard(unsigned char key, int x, int y)
             collide_ball_left();
         }
     }
-    else if ((key == 'a') && (LeftPos < HALF - 2*RADIUS))       //Paddle moves right
+    else if ((key == 'd') && (LeftPos < HALF - 2*RADIUS))       //Paddle moves right
     {
         LeftPos += RADIUS*2;
         RightPos += RADIUS*2;
@@ -355,15 +485,15 @@ void keyboard(unsigned char key, int x, int y)
         if (Launched == false)              //Ball still on paddle
         {
             reset_ball();
-
+            
         }
         else if (collide == true)
         {
             collide_ball_right();
         }
     }
-
-
+    
+    
     
     // Redraw objects
     glutPostRedisplay();
@@ -375,12 +505,12 @@ void keyboard(unsigned char key, int x, int y)
 void print_menu()
 {
     printf("\nGame controls:\n");
-    printf("  'q' = Paddle Left\n");
-    printf("  'a' = Paddle Right\n");
+    printf("  'a' = Paddle Left\n");
+    printf("  'd' = Paddle Right\n");
     printf("  To launch the ball click the ball and drag\n");
     printf("  in the direction you want it to launch then release\n");
     
-
+    
 }
 
 //---------------------------------------
