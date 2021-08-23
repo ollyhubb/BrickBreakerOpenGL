@@ -40,8 +40,8 @@
 //#6A   TEST BRICK COLLISION                    [DONE]
 //#6B   ADD BRICK REMOVAL AFTER HIT     [DONE]
 
-//#7    CREATE BRICK PATTERN RENDERING (CREATE MULTIPLE PATTERNS FOR ROWS THAT ALLOWS A RANDOM GENERATION TO SELECT PATTERN)
-//#7A   ADD TIMER ON A BOOL WHERE IF A BRICK IS HIT ANOTHER BRICK CANNOT BE HIT IN THAT SAME COLLISION
+//#7    CREATE BRICK PATTERN RENDERING (CREATE MULTIPLE PATTERNS FOR ROWS THAT ALLOWS A RANDOM GENERATION TO SELECT PATTERN)    [DONE]
+//#7A   IF A BRICK IS HIT ANOTHER BRICK CANNOT BE HIT IN THAT SAME COLLISION    [DONE]
 
 
 
@@ -58,6 +58,7 @@
 //#14  ADD TEXT TO SCREEN
 //#15  ADD MENU OR KEY SELECTION TO CHANGE BACKGROUNDS, BALL COLOR, ETC.
 //#16  NORMALIZE LAUNCH VALUES SO A CONSISTENT SPEED IS ACHIEVED WITH EACH LAUNCH ONLY DIRECTION IS RECORDED
+//#17 ADD BALL COUNT
 
 
 
@@ -78,10 +79,11 @@ const int RADIUS = 10;
 const int BRICK = 40;
 const int LENGTH = 15;
 
-
-
+// Booleans
 bool Launched = false;
 bool collide = false;
+
+
 
 // Variables
 float Speed = 5;    //Ball speeds
@@ -105,8 +107,15 @@ int initialY;
 int finalX;
 int finalY;
 
-int bricks[4][4];
-int brick_allow[4];
+int bricks[30][4];       //Brick arrays
+int brick_allow[30];    //Allows brick to render
+int brickLoc[30][2];    //Contains location info for brick
+
+int collideAllow;   //Used to remove multi brick collision
+
+int xBrickLoc;  //Used to set brick locations
+int yBrickLoc;
+
 
 
 //---------------------------------------
@@ -151,34 +160,14 @@ void collide_ball_right()     //Ball was launched and hit paddle, move paddle ri
     Vy = 0;
 }
 
-//---------------------------------------
-// Init function for OpenGL
-//---------------------------------------
-void init()
+//-------------------------
+// Brick Generation
+//-------------------------
+void generation(int brick, int position, int value)
 {
-    // Initialize OpenGL
-    glClearColor(0.0, 0.0, 0.0, 1.0);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(-HALF, HALF, -HALF, HALF, -HALF, HALF);
-    
-    // Initialize pong board
-    srand(clock());
-    
-    LeftPos = TENTH;
-    RightPos = -TENTH;
-    BallPosX = LeftPos - (LeftPos/2) - 2*RADIUS + (RADIUS/2);
-    
-    
-    for (int i =0; i < 4; i++)              //BRICK ALLOW CHANGE BACK
-    {
-        brick_allow[i] = 1;
-    }
-    
-    reset_ball();
+    brickLoc[brick][position] = value;
     
 }
-
 
 //-------------------------
 // Collision check for side of bricks
@@ -198,6 +187,59 @@ bool Collision(float BallPositionZ, int leftVertex, int rightVertex)
     
     
 }
+
+
+//---------------------------------------
+// Init function for OpenGL
+//---------------------------------------
+void init()
+{
+    // Initialize OpenGL
+    glClearColor(0.0, 0.0, 0.0, 1.0);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(-HALF, HALF, -HALF, HALF, -HALF, HALF);
+    
+    // Initialize pong board
+    srand(clock());
+    
+    LeftPos = TENTH;
+    RightPos = -TENTH;
+    BallPosX = LeftPos - (LeftPos/2) - 2*RADIUS + (RADIUS/2);
+    
+    collideAllow = 0;
+    xBrickLoc = -200;
+    yBrickLoc = 15;
+    
+    
+    for (int i = 0; i < 30; i++)              //BRICK ALLOW CHANGE i BASED ON BRICK COUNT
+    {
+        xBrickLoc += 40;
+        if (i == 10 || i == 20)
+        {
+            xBrickLoc = -160;
+            yBrickLoc += 60;
+        }
+        
+        brick_allow[i] = 1;
+        
+        for (int j = 0; j < 2; j++)
+        {
+            generation(i, 0, xBrickLoc);
+            generation(i, 1, yBrickLoc);
+        }
+        
+        
+    }
+    
+    
+    
+    
+    reset_ball();
+    
+}
+
+
 
 //-------------------------
 // Brick Render
@@ -342,32 +384,22 @@ void display()
     
     
     //Brick Render
-    if (brick_allow[0] == 1)
+    for (int i = 0; i < 30; i++)
     {
-        brick_render(0, 40,15, 0.8);
+        if (i % 2 == 0)
+        {
+            if ( brick_allow[i] ==  1)
+            {
+                brick_render(i, brickLoc[i][0], brickLoc[i][1], 0.65);
+            }
+        }
+        else
+            if ( brick_allow[i] ==  1)
+            {
+                brick_render(i, brickLoc[i][0], brickLoc[i][1], 0.8);
+            }
         
     }
-    
-    if (brick_allow[1] == 1)
-    {
-        brick_render(1, 0, 15, 0.65);
-        
-    }
-    
-    if (brick_allow[2] == 1)
-    {
-        brick_render(2, -40, 15, 0.8);                  //Each 40 in the x coordinate is a bricks length
-        
-    }
-    
-    if (brick_allow[3] == 1)
-    {
-        brick_render(3, -80, 15, 0.65);
-        
-    }
-    
-    
-    
     
     glFlush();
 }
@@ -377,7 +409,7 @@ void display()
 //---------------------------------------
 void idle()
 {
-    
+    collideAllow = 0;
     
     // Move bouncing ball
     BallPosX += Vx * Speed;
@@ -419,18 +451,25 @@ void idle()
     }
     
     
-    for (int i = 0; i < 4; i++ )
+    for (int i = 0; i < 30; i++ )        //Collision for bricks check
     {
+        if(collideAllow != 0)
+        {
+            break;
+        }
+        
         if (brick_allow[i] == 1)
         {
             if ((Collision(BallPosX, bricks[i][1], bricks[i][0]) == true) && (Collision(BallPosY, bricks[i][2], bricks[i][3]))) //Collision on sides of brick
             {
+                collideAllow++;
                 Vx*= -1;
                 brick_allow[i] = 0;
             }
             
             if ((Collision(BallPosX, bricks[i][1], bricks[i][0]) == true) && ((Collision(BallPosY, bricks[i][2], bricks[i][3]) == true)))//Collision on top or bottom
             {
+                collideAllow++;
                 Vy *= -1;
                 Vx *= -1;
                 brick_allow[i] = 0;
@@ -536,3 +575,4 @@ int main(int argc, char *argv[])
     glutMainLoop();
     return 0;
 }
+
